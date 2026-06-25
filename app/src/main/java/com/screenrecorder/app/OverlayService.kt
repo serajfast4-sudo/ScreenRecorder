@@ -1,7 +1,6 @@
 package com.screenrecorder.app
 
 import android.app.Service
-import android.widget.ImageView
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -11,65 +10,123 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
-import kotlin.math.sqrt
 
 class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
-    private var overlayView: FrameLayout? = null
-    private var params: WindowManager.LayoutParams? = null
-    private var isExpanded = false
-    private var isPaused = false
+    private lateinit var overlayView: View
+    private lateinit var controlsView: View
+    private var isControlsVisible = false
 
-    private var initialX = 0
-    private var initialY = 0
-    private var initialTouchX = 0f
-    private var initialTouchY = 0f
-    private var isDragging = false
-
-    private var mainButton: ImageButton? = null
-    private var actionsLayout: LinearLayout? = null
-    private var pauseButton: ImageButton? = null
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        createOverlay()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (overlayView == null) {
-            showOverlay()
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::overlayView.isInitialized) windowManager.removeView(overlayView)
+        if (::controlsView.isInitialized) windowManager.removeView(controlsView)
+    }
+
+    private fun createOverlay() {
+        val button = createOverlayButton()
+        overlayView = button
+
+        val params = WindowManager.LayoutParams(
+            dp(64), dp(64),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 100
+            y = 300
         }
-        return START_STICKY
-    }
 
-    private fun showOverlay() {
-        overlayView = FrameLayout(this)
+        var lastX = 0
+        var lastY = 0
+        var startX = 0
+        var startY = 0
+        var moved = false
 
-        mainButton = createOverlayButton().apply {
-            layoutParams = FrameLayout.LayoutParams(dp(52), dp(52)).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        button.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastX = event.rawX.toInt()
+                    lastY = event.rawY.toInt()
+                    startX = lastX
+                    startY = lastY
+                    moved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX.toInt() - lastX
+                    val dy = event.rawY.toInt() - lastY
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true
+                    params.x += dx
+                    params.y += dy
+                    lastX = event.rawX.toInt()
+                    lastY = event.rawY.toInt()
+                    windowManager.updateViewLayout(overlayView, params)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) toggleControls(params)
+                    true
+                }
+                else -> false
             }
         }
 
-        actionsLayout = createActionsLayout().apply {
-            visibility = View.GONE
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                topMargin = dp(8)
-            }
+        windowManager.addView(overlayView, params)
+    }
+
+    private fun toggleControls(anchorParams: WindowManager.LayoutParams) {
+        if (isControlsVisible) {
+            if (::controlsView.isInitialized) windowManager.removeView(controlsView)
+            isControlsVisible = false
+        } else {
+            showControls(anchorParams)
+            isControlsVisible = true
+        }
+    }
+
+    private fun showControls(anchorParams: WindowManager.LayoutParams) {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = createRoundedDrawable(Color.parseColor("#CC000000"))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
         }
 
-        overlayView?.addView(mainButton)
-        overlayView?.addView(actionsLayout)
+        val pauseBtn = createControlButton("⏸")
+        val cutBtn = createControlButton("✂")
+        val stopBtn = createControlButton("⏹")
 
-        params = WindowManager.LayoutParams(
+        pauseBtn.setOnClickListener {
+            sendBroadcast(Intent(RecordingService.ACTION_PAUSE))
+        }
+        cutBtn.setOnClickListener {
+            sendBroadcast(Intent(RecordingService.ACTION_CUT))
+        }
+        stopBtn.setOnClickListener {
+            sendBroadcast(Intent(RecordingService.ACTION_STOP))
+            stopSelf()
+        }
+
+        layout.addView(pauseBtn)
+        layout.addView(cutBtn)
+        layout.addView(stopBtn)
+
+        controlsView = layout
+
+        val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -77,155 +134,31 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(16)
-            y = dp(100)
+            x = anchorParams.x
+            y = anchorParams.y + dp(70)
         }
 
-        windowManager.addView(overlayView, params)
-        setupMainButtonTouch()
+        windowManager.addView(controlsView, params)
     }
 
     private fun createOverlayButton(): ImageButton {
-        val button = ImageButton(this)
-        button.setImageResource(R.drawable.ic_overlay_main)
-        button.scaleType = ImageView.ScaleType.CENTER_INSIDE
-        button.setPadding(dp(14), dp(14), dp(14), dp(14))
-        button.setImageTintList(
-            android.content.res.ColorStateList.valueOf(Color.WHITE)
-        )
-        button.background = createCircleDrawable(Color.parseColor("#E53935"))
-        button.setOnClickListener { toggleExpanded() }
-        return button
-    }
-
-    private fun createActionsLayout(): LinearLayout {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = createRoundedDrawable(Color.parseColor("#99000000"))
-        }
-
-        pauseButton = createActionButton(R.drawable.ic_pause) {
-            if (isPaused) {
-                sendAction(RecordingService.ACTION_RESUME)
-                isPaused = false
-                pauseButton?.setImageResource(R.drawable.ic_pause)
-            } else {
-                sendAction(RecordingService.ACTION_PAUSE)
-                isPaused = true
-                pauseButton?.setImageResource(R.drawable.ic_play)
-            }
-            collapse()
-        }
-
-        val cutButton = createActionButton(R.drawable.ic_cut) {
-            sendAction(RecordingService.ACTION_CUT)
-            collapse()
-        }
-
-        val stopButton = createActionButton(R.drawable.ic_stop) {
-            sendAction(RecordingService.ACTION_STOP)
-            stopSelf()
-        }
-
-        layout.addView(pauseButton)
-        layout.addView(cutButton)
-        layout.addView(stopButton)
-
-        return layout
-    }
-
-    private fun createActionButton(
-        iconRes: Int,
-        onClick: () -> Unit
-    ): ImageButton {
-        val button = ImageButton(this)
-        button.setImageResource(iconRes)
-        button.scaleType = ImageView.ScaleType.CENTER_INSIDE
-        button.setPadding(dp(10), dp(10), dp(10), dp(10))
-        button.setImageTintList(
-            android.content.res.ColorStateList.valueOf(Color.WHITE)
-        )
-        button.background = createCircleDrawable(Color.parseColor("#555555"))
-        val size = dp(44)
-        button.layoutParams = LinearLayout.LayoutParams(size, size).apply {
-            setMargins(dp(4), dp(4), dp(4), dp(4))
-        }
-        button.setOnClickListener { onClick() }
-        return button
-    }
-
-    private fun setupMainButtonTouch() {
-        mainButton?.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    isDragging = false
-                    initialX = params?.x ?: 0
-                    initialY = params?.y ?: 0
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - initialTouchX
-                    val dy = event.rawY - initialTouchY
-                    val distance = sqrt(dx * dx + dy * dy)
-
-                    if (distance > TOUCH_SLOP) {
-                        isDragging = true
-                        params?.x = (initialX + dx).toInt()
-                        params?.y = (initialY + dy).toInt()
-                        overlayView?.let {
-                            windowManager.updateViewLayout(it, params)
-                        }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!isDragging) {
-                        mainButton?.performClick()
-                    }
-                    true
-                }
-            }
+        return ImageButton(this).apply {
+            setImageResource(R.drawable.ic_overlay_main)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE))
+            background = createCircleDrawable(Color.parseColor("#E53935"))
         }
     }
 
-    private fun toggleExpanded() {
-        if (isExpanded) collapse() else expand()
-    }
-
-    private fun expand() {
-        isExpanded = true
-        actionsLayout?.visibility = View.VISIBLE
-    }
-
-    private fun collapse() {
-        isExpanded = false
-        actionsLayout?.visibility = View.GONE
-    }
-
-    private fun sendAction(action: String) {
-        val intent = Intent(this, RecordingService::class.java).apply {
-            this.action = action
+    private fun createControlButton(emoji: String): android.widget.TextView {
+        return android.widget.TextView(this).apply {
+            text = emoji
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            gravity = Gravity.CENTER
         }
-        startService(intent)
-    }
-
-    override fun onDestroy() {
-        overlayView?.let {
-            try {
-                windowManager.removeView(it)
-            } catch (_: Exception) {}
-        }
-        overlayView = null
-        super.onDestroy()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    private fun dp(value: Int): Int {
-        return (value * resources.displayMetrics.density).toInt()
     }
 
     private fun createCircleDrawable(color: Int): GradientDrawable {
@@ -238,12 +171,12 @@ class OverlayService : Service() {
     private fun createRoundedDrawable(color: Int): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(16).toFloat()
             setColor(color)
-            cornerRadius = dp(12).toFloat()
         }
     }
 
-    companion object {
-        private const val TOUCH_SLOP = 10f
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
     }
 }
