@@ -87,7 +87,7 @@ class OverlayService : Service() {
     private fun createOverlayButton(): ImageButton {
         val button = ImageButton(this)
         button.setImageResource(R.drawable.ic_overlay_main)
-        button.scaleType = ImageButton.ScaleType.CENTER_INSIDE
+        button.scaleType = ImageView.ScaleType.CENTER_INSIDE
         button.setPadding(dp(14), dp(14), dp(14), dp(14))
         button.setImageTintList(
             android.content.res.ColorStateList.valueOf(Color.WHITE)
@@ -140,7 +140,7 @@ class OverlayService : Service() {
     ): ImageButton {
         val button = ImageButton(this)
         button.setImageResource(iconRes)
-        button.scaleType = ImageButton.ScaleType.CENTER_INSIDE
+        button.scaleType = ImageView.ScaleType.CENTER_INSIDE
         button.setPadding(dp(10), dp(10), dp(10), dp(10))
         button.setImageTintList(
             android.content.res.ColorStateList.valueOf(Color.WHITE)
