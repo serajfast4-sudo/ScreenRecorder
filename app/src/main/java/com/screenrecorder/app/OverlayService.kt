@@ -1,6 +1,7 @@
 package com.screenrecorder.app
 
 import android.app.Service
+import android.widget.ImageView
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
