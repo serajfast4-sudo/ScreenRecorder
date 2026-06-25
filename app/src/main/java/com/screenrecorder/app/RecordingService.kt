@@ -83,11 +83,10 @@ class RecordingService : Service() {
             }
         }, null)
 
-        startForeground(NOTIFICATION_ID, createNotification("Recording in progress"))
+        startForeground(NOTIFICATION_ID, createNotification(getString(R.string.recording_in_progress)))
         startTimestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
         startNewSegment()
-        startService(Intent(this, OverlayService::class.java))
     }
 
     private fun startNewSegment() {
@@ -179,7 +178,7 @@ class RecordingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isPaused) {
             mediaRecorder?.pause()
             isPaused = true
-            updateNotification("Recording paused")
+            updateNotification(getString(R.string.recording_paused))
         }
     }
 
@@ -187,7 +186,7 @@ class RecordingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isPaused) {
             mediaRecorder?.resume()
             isPaused = false
-            updateNotification("Recording in progress")
+            updateNotification(getString(R.string.recording_in_progress))
         }
     }
 
@@ -217,7 +216,7 @@ class RecordingService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(CHANNEL_ID, "Screen Recorder", NotificationManager.IMPORTANCE_LOW)
+        val channel = NotificationChannel(CHANNEL_ID, getString(R.string.app_name), NotificationManager.IMPORTANCE_LOW)
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
@@ -225,7 +224,7 @@ class RecordingService : Service() {
     private fun createNotification(text: String): Notification {
         val intent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("Screen Recorder")
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(intent)

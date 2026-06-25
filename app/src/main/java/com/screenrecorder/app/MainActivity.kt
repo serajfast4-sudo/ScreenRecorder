@@ -32,6 +32,8 @@ class MainActivity : AppCompatActivity() {
             }
             ContextCompat.startForegroundService(this, intent)
             moveTaskToBack(true)
+        } else {
+            stopService(Intent(this, OverlayService::class.java))
         }
     }
 
@@ -71,12 +73,13 @@ class MainActivity : AppCompatActivity() {
         val modes = AudioMode.entries.map { it.label }.toTypedArray()
 
         AlertDialog.Builder(this)
-            .setTitle("Select Audio Mode")
+            .setTitle(getString(R.string.audio_mode_title))
             .setSingleChoiceItems(modes, selectedAudioIndex) { _, which ->
                 selectedAudioIndex = which
             }
             .setPositiveButton("OK") { _, _ ->
                 if (checkOverlayPermission()) {
+                    startService(Intent(this, OverlayService::class.java))
                     startScreenCapture()
                 }
             }
@@ -87,7 +90,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Toast.makeText(
                 this,
-                "Please grant overlay permission in Settings",
+                getString(R.string.overlay_permission_required),
                 Toast.LENGTH_LONG
             ).show()
             val intent = Intent(
@@ -107,9 +110,10 @@ class MainActivity : AppCompatActivity() {
             ) {
                 Toast.makeText(
                     this,
-                    "Audio recording permission is required",
+                    getString(R.string.audio_permission_required),
                     Toast.LENGTH_SHORT
                 ).show()
+                stopService(Intent(this, OverlayService::class.java))
                 return
             }
         }

@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Screen Recorder</string>
-    <string name="record">Record</string>
+    <string name="record">Start Recording</string>
+    <string name="app_subtitle">Capture your screen with ease</string>
+    <string name="app_description">High-quality screen recording with audio options</string>
+    <string name="audio_mode_title">Select Audio Mode</string>
+    <string name="overlay_permission_required">Please grant overlay permission in Settings</string>
+    <string name="audio_permission_required">Audio recording permission is required</string>
+    <string name="recording_in_progress">Recording in progress</string>
+    <string name="recording_paused">Recording paused</string>
 </resources>
