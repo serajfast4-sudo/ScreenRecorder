@@ -11,13 +11,13 @@
         android:toYScale="1.15"
         android:pivotX="50%"
         android:pivotY="50%"
-        android:repeatCount="infinite"
+        android:repeatCount="-1"
         android:repeatMode="reverse" />
         
     <alpha
         android:duration="1200"
         android:fromAlpha="1.0"
         android:toAlpha="0.4"
-        android:repeatCount="infinite"
+        android:repeatCount="-1"
         android:repeatMode="reverse" />
 </set>
